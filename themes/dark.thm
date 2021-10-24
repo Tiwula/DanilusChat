@@ -1,0 +1,22 @@
+[main]
+BColor = #2F3E4C
+TitleFormat = Chat - &HOST&:&PORT&@&NICK&
+
+[text]
+FFont = Comic Sans MS
+SFont = 12
+BColor = #2F3E4C
+FColor = #D1E1F0
+
+[input]
+FFont = Comic Sans MS
+SFont = 12
+BColor = #2F3E4C
+FColor = #E6F0F9
+CCursor = #E6F0F9
+
+[popup]
+FFont = Comic Sans MS
+SFont = 10
+BColor = #4D5863
+FColor = #E6F0F9
