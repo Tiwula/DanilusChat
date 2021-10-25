@@ -25,23 +25,22 @@ try:
     NICK = settings['client']['Nick']
 except:
     messagebox.showerror("Error", "Config loading error")
-    f = open('client.cfg', 'w')
-    f.write(
-    """{
+    f = open('client-cfg.json', 'w')
+    f.write("""{
 	"client": {
 		"IPhost": "127.0.0.1",
 		"PortHost": 9574,
-		"Nick": "{}"
+		"Nick": "User"
 	},
 	"settings": {
 		"Timestamp": true,
 		"Colored": true,
 		"Sounds": true,
-		"Theme": "dark.thm"
+		"Theme": "default.thm"
 	}
-}""".format(socket.gethostname()))
+}""")
     f.close()
-    quit()
+    exit(0)
 
 class Client:
 
@@ -59,7 +58,7 @@ class Client:
             self.sock.connect((self.host, self.port))
         except Exception as ex:
             messagebox.showerror("Connection error", str(ex) + '\n\nCheck client-cfg > client')
-            quit()
+            raise("Connection error")
 
         msg = Tk()
         msg.withdraw()
@@ -145,7 +144,7 @@ class Client:
     }
 }""")
         f.close()
-        quit()
+        exit(0)
 
     def guiLoop(self):
         self.win = Tk()
@@ -309,7 +308,7 @@ class Client:
         self.running = False
         self.win.destroy()
         self.sock.close()
-        quit()
+        exit(0)
 
     def form(self, txt):
         text = txt
