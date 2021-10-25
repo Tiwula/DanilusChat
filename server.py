@@ -1,11 +1,9 @@
 import random
 import socket
-from subprocess import run
 import threading as th
 import json
 from rich.console import Console
 from datetime import datetime as dt
-import io
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import hashes
@@ -17,15 +15,19 @@ import sys, traceback, os
 con = Console()
 
 d = dt.now() 
-os.mkdir('logs')
+try:
+    os.mkdir('logs')
+except:
+    pass
 logname = d.strftime('logs\\server_%d-%m-%Y_%H.%M.%S.log')
 
 settings = {}
 try:
     f = open('server-cfg.json')
     settings = json.load(f)
+    f.close()
 except:
-    f = io.open('server-cfg.json', 'w')
+    f = open('server-cfg.json', 'w')
     f.write(
 """{
 	"IPhost": "127.0.0.1",
@@ -33,7 +35,8 @@ except:
 	"Password": 1234,
 	"Debug": true,
 	"Formating": true,
-	"FormatingNick": true
+	"FormatingNick": true,
+	"MultiAccount": true
 }""")
     f.close()
     quit()
@@ -63,7 +66,7 @@ def log(fro, message):
     if fro != 'debug' or fro == 'debug' and settings['Debug']:
         d = dt.now()
         newd = d.strftime('[%d-%m-%Y %H:%M:%S]')
-        f = io.open(logname, 'a')
+        f = open(logname, 'a')
         f.write(f'{newd} <{fro}> {message}' + '\n')
         con.print(f'[cyan bold]{newd}[/] [yellow bold]<{fro}>[/] {message}')
         f.close()
@@ -115,17 +118,17 @@ def handle(client):
                 if com[0] == 'admin' and not clients[client].admin and len(com) == 2:
                     if com[1] == settings['Password']:
                         clients[client].admin = True
-                        client.send(encrypt(clients[client].pubKey, "<server -> me> Successfuly"))
+                        client.send(encrypt(clients[client].pubKey, "<server -> me> Successfully"))
                     else:
-                        client.send(encrypt(clients[client].pubKey, "<server -> me> Unsuccessfuly"))
+                        client.send(encrypt(clients[client].pubKey, "<server -> me> Unsuccessfully"))
 
                 elif com[0] == 'admin' and clients[client].admin and len(com) == 2:
                         for cl in clients:
                             if clients[cl].nickname == com[1]:
                                 clients[cl].admin = True
-                                client.send(encrypt(clients[client].pubKey, "<server -> me> Successfuly"))
+                                client.send(encrypt(clients[client].pubKey, "<server -> me> Successfully"))
                             else: 
-                                client.send(encrypt(clients[client].pubKey, "<server -> me> Unsuccessfuly"))
+                                client.send(encrypt(clients[client].pubKey, "<server -> me> Unsuccessfully"))
 
                 elif com[0] == 'nick' and clients[client].admin and len(com) == 3:
                     log('debug', clients)
@@ -143,7 +146,7 @@ def handle(client):
                         log('debug', clients[cl].nickname)
                         if clients[cl].nickname == listJoin(com[1:]):
                             log('debug','Found ' + clients[cl].nickname)
-                            cl.send(encrypt(clients[client].pubKey, f"<server -> me> You are kicked by {clients[client].nickname}."))
+                            cl.send(encrypt(clients[client].pubKey, f"<server -> me> You were kicked by {clients[client].nickname}."))
                             cl.close()
                             broadcast(f"{clients[cl].nickname} kicked by {clients[client].nickname}.")
                             break
@@ -157,7 +160,7 @@ def handle(client):
                         log('debug', clients[cl].nickname)
                         if clients[cl].nickname == listJoin(com[1:]):
                             log('debug','Found ' + clients[cl].nickname)
-                            cl.send(encrypt(clients[client].pubKey, f"<server -> me> You are banned by {clients[client].nickname}."))
+                            cl.send(encrypt(clients[client].pubKey, f"<server -> me> You were banned by {clients[client].nickname}."))
                             cl.close()
                             break
 
@@ -169,7 +172,7 @@ def handle(client):
                         log('debug', clients[cl].nickname)
                         if clients[cl].addr == com[1]:
                             log('debug','Found ' + clients[cl].nickname)
-                            cl.send(encrypt(clients[client].pubKey, f"<server -> me> You are banned by {clients[client].nickname}."))
+                            cl.send(encrypt(clients[client].pubKey, f"<server -> me> You were banned by {clients[client].nickname}."))
                             cl.close()
                             broadcast(f"{clients[cl].nickname} banned by {clients[client].nickname}.")
                             break
@@ -202,9 +205,9 @@ def handle(client):
                     log('debug', f'try from {clients[client].nickname}: {listJoin(com[1:])}')
                     tr = bool(random.randint(0,1))
                     if tr:
-                        broadcast(f"*{clients[client].nickname} {removeFormat(listJoin(com[1:]))} &2(Successfuly)&r")
+                        broadcast(f"*{clients[client].nickname} {removeFormat(listJoin(com[1:]))} &2(Successfully)&r")
                     else:
-                        broadcast(f"*{clients[client].nickname} {removeFormat(listJoin(com[1:]))} &4(Unsuccessfuly)&r")
+                        broadcast(f"*{clients[client].nickname} {removeFormat(listJoin(com[1:]))} &4(Unsuccessfully)&r")
 
                 elif com[0] == 'do' and len(com) >= 2:
                     log('debug', f'do from {clients[client].nickname}: {listJoin(com[1:])}')
@@ -212,13 +215,14 @@ def handle(client):
 
                 elif com[0] == 'list' and len(com) == 1:
                     log('debug', f'send list to {clients[client].nickname}')
-                    client.send(encrypt(clients[client].pubKey, f'<server -> me> list of connected users:'))
+                    text = "<server -> me> list of connected users:"
                     for cl in clients:
                         if clients[cl].admin:
-                            client.send(encrypt(clients[client].pubKey, f'a {clients[cl].nickname} > {clients[cl].addr}\n'))
+                            text = text + f'\na {clients[cl].nickname} > {clients[cl].addr}'
                         else:
-                            client.send(encrypt(clients[client].pubKey, f'- {clients[cl].nickname} > {clients[cl].addr}\n'))
-                        
+                            text = text + f'\n- {clients[cl].nickname} > {clients[cl].addr}'
+                    client.send(encrypt(clients[client].pubKey, text))
+
                 elif com[0] == 'color' and clients[client].admin and len(com) >= 3:
                     col = removeFont(com[1][0:2])
                     for cl in clients:
@@ -240,6 +244,8 @@ def handle(client):
 
                 elif com[0] == 'prefix' and len(com) >= 2:
                     clients[client].prefix = removeFont(listJoin(com[1:]))
+                    if removeFont(listJoin(com[1:])) == '' or removeFont(listJoin(com[1:])) == 'remove':
+                        clients[client].prefix = None
                 
 
                 elif com[0] == 'help' and len(com) == 1:
@@ -261,11 +267,11 @@ def handle(client):
 
             else:
                 mess = message
-                mess = f'{clients[client].color}<{clients[client].nickname}>&r ' + message
+                mess = f'<{clients[client].color}{clients[client].nickname}&r> ' + message
                 if clients[client].prefix:
-                    mess = f'[{clients[client].prefix}] ' + mess
+                    mess = f'[{clients[client].prefix}&r] ' + mess
                 if clients[client].admin:
-                    mess = '&c[Admin]&r ' + mess
+                    mess = '[&cAdmin&r] ' + mess
                 broadcast(mess)
         except Exception as ex:
             try:
@@ -333,7 +339,7 @@ def receive():
                 
 
                 if nickname in banNickList or addr[0] in banIpList:
-                    client.send('<server -> me> You are banned from this server.'.encode('utf-8'))
+                    client.send('<server -> me> You were banned from this server.'.encode('utf-8'))
                     client.close()
                     continue
                 if not settings['FormatingNick']:

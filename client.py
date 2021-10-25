@@ -1,11 +1,10 @@
 import socket
 import threading as th
-import configparser as cp
 import tkinter
 from tkinter.font import Font
 from tkinter.constants import *
 import tkinter.scrolledtext
-from tkinter import Tk
+from tkinter import Tk, messagebox
 from datetime import datetime as dt
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -13,52 +12,34 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import serialization
 import sys, traceback, os
-import io, random
 import winsound
+import json
 
 try:
-    cfgParser = cp.ConfigParser()
-    cfgParser.read(r'client.cfg')
+    f = open('client-cfg.json')
+    settings = json.load(f)
+    f.close()
 
-    servData = cfgParser['client']
-    HOST = servData['IPhost']
-    PORT = servData['PortHost']
-    NICK = servData['Nick']
-
-    setData = cfgParser['settings']
-    sett = {}
-    sett['Timestamp'] = setData['Timestamp']
-    if sett['Timestamp'].lower() == 'true':
-        sett['Timestamp'] = True
-    else:
-        sett['Timestamp'] = False
-
-    sett['Colored'] = setData['Colored']
-    if sett['Colored'].lower() == 'true':
-        sett['Colored'] = True
-    else:
-        sett['Colored'] = False
-
-    sett['Sounds'] = setData['Sounds']
-    if sett['Sounds'].lower() == 'true':
-        sett['Sounds'] = True
-    else:
-        sett['Sounds'] = False
-    
-    theme = setData['Theme']
+    HOST = settings['client']['IPhost']
+    PORT = settings['client']['PortHost']
+    NICK = settings['client']['Nick']
 except:
-    f = io.open('client.cfg', 'w')
+    messagebox.showerror("Error", "Config loading error")
+    f = open('client.cfg', 'w')
     f.write(
-    f"""[client]
-IPhost = 127.0.0.1
-PortHost = 9574
-Nick = User{random.randrange(1, 255)}
-
-[settings]
-Timestamp = True
-Colored = True
-Sounds = True
-Theme = default.thm""")
+    """{
+	"client": {
+		"IPhost": "127.0.0.1",
+		"PortHost": 9574,
+		"Nick": "{}"
+	},
+	"settings": {
+		"Timestamp": true,
+		"Colored": true,
+		"Sounds": true,
+		"Theme": "dark.thm"
+	}
+}""".format(socket.gethostname()))
     f.close()
     quit()
 
@@ -74,7 +55,11 @@ class Client:
         self.counter = 0
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((self.host, self.port))
+        try:
+            self.sock.connect((self.host, self.port))
+        except Exception as ex:
+            messagebox.showerror("Connection error", str(ex) + '\n\nCheck client-cfg > client')
+            quit()
 
         msg = Tk()
         msg.withdraw()
@@ -85,14 +70,15 @@ class Client:
         self.running = True
 
         try:
-            themeParser = cp.ConfigParser()
-            themeParser.read('themes\\'+theme)
+            f = open('themes\\'+settings['settings']['Theme'])
+            self.theme = json.load(f)
+            f.close()
         except:
             self.defaultConfig()
 
         try:
-            self.fdf = themeParser['text']['FFont']
-            self.fds = themeParser['text']['SFont']
+            self.fdf = self.theme['text']['FFont']
+            self.fds = self.theme['text']['SFont']
         except Exception as ex:
             print(str(ex))
             self.defaultConfig()
@@ -104,8 +90,8 @@ class Client:
         
         
         try:
-            self.FDefault = Font(family=themeParser['text']['FFont'], size=int(themeParser['text']['SFont']))
-            self.tformat = themeParser['main']['TitleFormat']
+            self.FDefault = Font(family=self.theme['text']['FFont'], size=int(self.theme['text']['SFont']))
+            self.tformat = self.theme['main']['TitleFormat']
         except Exception as ex:
             print(str(ex))
             self.defaultConfig()
@@ -115,31 +101,49 @@ class Client:
         self.receiveThread.start()
 
     def defaultConfig(self):
-        os.mkdir('themes')
-        f = io.open('themes\\default.thm', 'w')
+        messagebox.showerror("Error", "Theme loading error\n\nCheck client-cfg > settings > Theme")
+        ex_type, ex, tb = sys.exc_info()
+        traceback.print_tb(tb)
+        try:
+            os.mkdir('themes')
+        except:
+            pass
+        f = open('themes\\default.thm', 'w')
         f.write(
-"""[main]
-BColor = #FFFFFF
-TitleFormat = Chat - &HOST&:&PORT&@&NICK&
-
-[text]
-FFont = Comic Sans MS
-SFont = 12
-BColor = #FFFFFF
-FColor = #000000
-
-[input]
-FFont = Comic Sans MS
-SFont = 12
-BColor = #FFFFFF
-FColor = #000000
-CCursor = #000000
-
-[popup]
-FFont = Comic Sans MS
-SFont = 12
-BColor = #FFFFFF
-FColor = #000000""")
+"""{
+    "author":
+    {
+        "Author": "Danilus",
+        "Site": "https://github.com/Danilus-s"
+    },
+    "main":
+    {
+        "BColor": "#FFFFFF",
+        "TitleFormat": "Chat - &HOST&:&PORT&@&NICK&"
+    },
+    "text":
+    {
+        "FFont": "Arial",
+        "SFont": 12,
+        "BColor": "#FFFFFF",
+        "FColor": "#000000"
+    },
+    "input":
+    {
+        "FFont": "Arial",
+        "SFont": 12,
+        "BColor": "#FFFFFF",
+        "FColor": "#000000",
+        "CCursor": "#000000"
+    },
+    "popup":
+    {
+        "FFont": "Arial",
+        "SFont": 10,
+        "BColor": "#FFFFFF",
+        "FColor": "#000000"
+    }
+}""")
         f.close()
         quit()
 
@@ -148,8 +152,11 @@ FColor = #000000""")
         self.win.configure(bg='lightgray')
         self.win.title('Chat ~ Client')
 
+        self.win.grid_rowconfigure(0, weight=1)
+        self.win.grid_columnconfigure(0, weight=1)
+
         self.textArea = tkinter.scrolledtext.ScrolledText(self.win)
-        self.textArea.pack(fill='both')
+        self.textArea.grid(row=0, column=0, sticky='nswe')
         self.textArea.config(state='disabled', font=('Comic Sans MS', 12))
 
 
@@ -178,8 +185,8 @@ FColor = #000000""")
 
 
         self.inputArea = tkinter.Entry(self.win)
-        self.inputArea.config(font=('Comic Sans MS', 12))
-        self.inputArea.pack(pady=3, fill='x', side='bottom')
+        self.inputArea.config(font=('Arial', 12))
+        self.inputArea.grid(row=1, column=0, sticky='swe')
 
         self.inputArea.bind('<Return>', self.write)
         self.inputArea.bind('<Down>', self.hist)
@@ -219,13 +226,11 @@ FColor = #000000""")
         self.win.protocol('WM_DELETE_WINDOW', self.stop)
 
         try:
-            themeParser = cp.ConfigParser()
-            themeParser.read('themes\\'+theme)
-            self.textArea.config(bg=themeParser['text']['BColor'], fg=themeParser['text']['FColor'], font=(themeParser['text']['FFont'], int(themeParser['text']['SFont'])))
-            self.inputArea.config(insertbackground=themeParser['input']['CCursor'], bg=themeParser['input']['BColor'], fg=themeParser['input']['FColor'], font=(themeParser['input']['FFont'], int(themeParser['input']['SFont'])))
-            self.popupMenu.config(bg=themeParser['popup']['BColor'], fg=themeParser['popup']['FColor'], font=(themeParser['popup']['FFont'], int(themeParser['popup']['SFont'])))
-            self.textArea.tag_configure("Reset", foreground=themeParser['text']['FColor'], font=self.FDefault)
-            self.win.config(bg=themeParser['main']['BColor'])
+            self.textArea.config(bg=self.theme['text']['BColor'], fg=self.theme['text']['FColor'], font=(self.theme['text']['FFont'], int(self.theme['text']['SFont'])))
+            self.inputArea.config(insertbackground=self.theme['input']['CCursor'], bg=self.theme['input']['BColor'], fg=self.theme['input']['FColor'], font=(self.theme['input']['FFont'], int(self.theme['input']['SFont'])))
+            self.popupMenu.config(bg=self.theme['popup']['BColor'], fg=self.theme['popup']['FColor'], font=(self.theme['popup']['FFont'], int(self.theme['popup']['SFont'])))
+            self.textArea.tag_configure("Reset", foreground=self.theme['text']['FColor'], font=self.FDefault)
+            self.win.config(bg=self.theme['main']['BColor'])
         except:
             self.defaultConfig()
 
@@ -308,9 +313,9 @@ FColor = #000000""")
 
     def form(self, txt):
         text = txt
-        if sett['Timestamp']:
+        if settings['settings']['Timestamp']:
                 d = dt.now()
-                newd = d.strftime('%H:%M:%S ')
+                newd = d.strftime('&7%H:%M:%S&r ')
                 text = newd + text
         poss = []
         cod = []
@@ -330,7 +335,7 @@ FColor = #000000""")
             
             col = ''
 
-            if sett['Colored']:
+            if settings['settings']['Colored']:
                 #Color
                 if cod[i] == '&0':
                     col = "ColorBlack"
@@ -399,7 +404,7 @@ FColor = #000000""")
             if str(message).find('\n'):
                 self.counter += self.findNL(message)
             self.counter += 1
-            if self.win.focus_get() == None and sett['Sounds']:
+            if self.win.focus_get() == None and settings['settings']['Sounds']:
                 winsound.Beep(600, 100)
 
     def encrypt(self, message):
@@ -423,7 +428,7 @@ FColor = #000000""")
                             '&PORT&' : self.port,
                             '&NICK&' : self.nick
                             }
-            text = self.tformat
+            text = self.theme['main']['TitleFormat']
             for k in rdict:
                 text = text.replace(k, str(rdict[k]))
             self.win.title(text)
