@@ -1,0 +1,33 @@
+{
+	"author":
+    {
+        "Author": "Felix",
+        "Site": "https://github.com/FelixFromDiscord"
+    },
+    "main":
+    {
+        "BColor": "#212121",
+        "TitleFormat": "TWILIGHT | &NICK&@&HOST&"
+    },
+    "text":
+    {
+        "FFont": "Century Gothic",
+        "SFont": 12,
+        "BColor": "#212121",
+        "FColor": "#a2a2a2"
+    },
+    "input":
+    {
+        "FFont": "Century Gothic",
+        "SFont": 12,
+        "BColor": "#717171",
+        "FColor": "#121212",
+        "CCursor": "#000000"
+    },
+    "popup":{
+        "FFont": "Century Gothic",
+        "SFont": 12,
+        "BColor": "#212121",
+        "FColor": "#a2a2a2"
+    }
+}
