@@ -353,7 +353,7 @@ def receive():
                 thread = th.Thread(target=handle, args=(client,))
                 thread.start()
                 
-                broadcast(f"{nickname} connected! Have a fun :)")
+                broadcast(f"{nickname} connected! Have fun :)")
             else:
                 client.close()
         except Exception as ex:
