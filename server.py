@@ -139,7 +139,7 @@ def loadData(client):
         clients[client].prefix = cli['prefix']
         clients[client].color = cli['color']
     except Exception as ex:
-        sf.log('server', f"Error loading data for user {clients[client].displayNick}")
+        sf.log('server', f"Error loading data for user.")
         sf.log('server', ex)
 
 def saveData(client):
