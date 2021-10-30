@@ -8,12 +8,20 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import serialization
-import sys, traceback, importlib, os
-
-import sfuncs as sf
+import sys, traceback, importlib, os, requests
 
 
 con = Console()
+
+try:
+    response = requests.get("https://raw.githubusercontent.com/Danilus-s/DanilusChat/main/sfuncs.py")
+    with open('sfuncs.py', 'w') as f:
+        f.write(response.text)
+except:
+    pass
+
+import sfuncs as sf
+
 
 settings = {}
 try:
@@ -32,7 +40,7 @@ except:
 	"MultiAccount": true
 }""")
     f.close()
-    quit()
+    exit()
 sf.settings = settings
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -55,31 +63,51 @@ except:
     pass
 
 plug = []
+pluginfo = {}
 for path in os.listdir('plugins'):
-    if path[len(path)-3:] == '.py':
-        plug.append(importlib.import_module('plugins.'+path[0:len(path)-3]))
-        sf.log("plugins", f"{path[0:len(path)-3]} initialized.")
+    try:
+        if path[len(path)-3:] == '.py':
+            pname = path[0:len(path)-3]
+            plug.append(importlib.import_module('plugins.'+pname))
+            sf.log("plugins", f"{pname} initialized.")
+            try:
+                pluginfo[pname] = plug.plugininfo
+            except:
+                pluginfo[pname] = {"name": pname, "author": "NoName", "version": "1.0"}
+    except Exception as ex:
+        sf.log('debug', 'Error loading plugin '+pname)
+        sf.log('debug', ex)
+sf.pluginfo = pluginfo
 
 for i in plug:
     try:
         i.init()
-    except:
+    except AttributeError:
         pass
+    except Exception as ex:
+        sf.log('debug', 'Error loading plugin '+pname)
+        sf.log('debug', ex)
 
 
 def sendToAll(data, event="receive message") -> None:
     if event == "receive message":
         for i in plug:
             try:
-                i.receive(data, event)
-            except:
+                i.receive(data)
+            except AttributeError:
                 pass
+            except Exception as ex:
+                sf.log('debug', 'Error execute plugin callback '+pname)
+                sf.log('debug', ex)
     elif event == "new user":
         for i in plug:
             try:
-                i.newUser(data, event)
-            except:
+                i.newUser(data)
+            except AttributeError:
                 pass
+            except Exception as ex:
+                sf.log('debug', 'Error execute plugin callback '+pname)
+                sf.log('debug', ex)
 
 class User:
     def __init__(self, nickname, addr, pubKey, privKey, admin=False, prefix=None, color='&r'):
@@ -111,7 +139,8 @@ def loadData(client):
         clients[client].prefix = cli['prefix']
         clients[client].color = cli['color']
     except Exception as ex:
-        sf.log('server', f"Error loading data for user {clients[client].displayNick} > {ex}")
+        sf.log('server', f"Error loading data for user {clients[client].displayNick}")
+        sf.log('server', ex)
 
 def saveData(client):
     cli = {}
@@ -282,6 +311,7 @@ def handle(client):
                 elif com[0] == 'help' and len(com) == 1:
                     sf.log('debug', f'send help to {clients[client].displayNick}')
                     client.send(encrypt(clients[client].pubKey, """<server -> me> help:
+\t/dm [nick] [message]
 \t/me [message]
 \t/do [message]
 \t/try [message]
@@ -312,7 +342,8 @@ def handle(client):
                 sf.broadcast(f"{nk} disconnected :(")
             except:
                 pass
-            sf.log("debug", f"{nk} disconnected. {ex}")
+            sf.log("debug", f"{nk} disconnected.")
+            sf.log("debug", ex)
             break
 
 def stop():
