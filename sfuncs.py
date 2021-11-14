@@ -15,6 +15,7 @@ class User:
         self.privKey = privKey
         self.prefix = prefix
         self.color = color
+        self.displayNick = nickname
 
 clients = {}
 
@@ -80,6 +81,51 @@ def removeFont(text) -> str:
     for i in flist:
         txt = txt.replace(i, '')
     return txt
+
+def banNick(nick) -> None:
+    f = open('bannick-list.txt')
+    text = f.read()
+    f.close()
+    curList = text.split('\n')
+    if not nick in curList:
+        f = open(open('bannick-list.txt', 'a'))
+        f.write(nick + '\n')
+        f.close()
+
+def banIP(ip) -> None:
+    f = open('banip-list.txt')
+    text = f.read()
+    f.close()
+    curList = text.split('\n')
+    if not ip in curList:
+        f = open(open('banip-list.txt', 'a'))
+        f.write(ip + '\n')
+        f.close()
+
+def unbanNick(nick) -> None:
+    f = open('bannick-list.txt')
+    text = f.read()
+    f.close()
+    curList = text.split('\n')
+    if nick in curList:
+        curList.remove(nick)
+        textToWrite = listJoin(curList, '\n')
+        f = open(open('bannick-list.txt', 'w'))
+        f.write(textToWrite)
+        f.close()
+
+def unbanIP(ip) -> None:
+    f = open('banip-list.txt')
+    text = f.read()
+    f.close()
+    curList = text.split('\n')
+    if ip in curList:
+        curList.remove(ip)
+        textToWrite = listJoin(curList, '\n')
+        f = open(open('banip-list.txt', 'w'))
+        f.write(textToWrite)
+        f.close()
+    
 
 def send(client, message):
     client.send(encrypt(clients[client].pubKey, message))

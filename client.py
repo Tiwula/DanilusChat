@@ -15,32 +15,60 @@ import sys, traceback, os
 import winsound
 import json
 
-try:
-    f = open('client-cfg.json')
-    settings = json.load(f)
-    f.close()
+args = sys.argv
 
-    HOST = settings['client']['IPhost']
-    PORT = settings['client']['PortHost']
-    NICK = settings['client']['Nick']
+cfgDone = False
+
+if len(args) == 6:
+    if args[1] == "launcher":
+        HOST = args[2]
+        PORT = args[3]
+        NICK = args[4]
+        THEME = args[5]
+        f = open('client-cfg.json')
+        settings = json.load(f)
+        f.close()
+        cfgDone = True
+
+if cfgDone == False:
+    try:
+        f = open('client-cfg.json')
+        settings = json.load(f)
+        f.close()
+
+        HOST = settings['client']['IPhost']
+        PORT = settings['client']['PortHost']
+        NICK = settings['client']['Nick']
+        THEME = settings['settings']['Theme']
+    except:
+        messagebox.showerror("/// Error ///", "Config read error")
+        defText = """{
+        "client": {
+            "IPhost": "127.0.0.1",
+            "PortHost": 9574,
+            "Nick": "User"
+        },
+        "settings": {
+            "Timestamp": true,
+            "Colored": true,
+            "Sounds": true,
+            "Theme": "default.thm"
+        }
+    }"""
+        f = open('client-cfg.json', 'w')
+        f.write(defText)
+        f.close()
+        settings = json.loads(defText)
+
+        HOST = settings['client']['IPhost']
+        PORT = settings['client']['PortHost']
+        NICK = settings['client']['Nick']
+        THEME = settings['settings']['Theme']
+
+try:
+    os.mkdir('themes')
 except:
-    messagebox.showerror("Error", "Config loading error")
-    f = open('client-cfg.json', 'w')
-    f.write("""{
-	"client": {
-		"IPhost": "127.0.0.1",
-		"PortHost": 9574,
-		"Nick": "User"
-	},
-	"settings": {
-		"Timestamp": true,
-		"Colored": true,
-		"Sounds": true,
-		"Theme": "default.thm"
-	}
-}""")
-    f.close()
-    exit(0)
+    pass
 
 class Client:
 
@@ -69,7 +97,7 @@ class Client:
         self.running = True
 
         try:
-            f = open('themes\\'+settings['settings']['Theme'])
+            f = open('themes\\'+THEME)
             self.theme = json.load(f)
             f.close()
         except:
@@ -79,8 +107,8 @@ class Client:
             self.fdf = self.theme['text']['FFont']
             self.fds = self.theme['text']['SFont']
         except Exception as ex:
-            print(str(ex))
-            self.defaultConfig()
+            messagebox.showerror("/// Error ///", "Theme loading error\n" + str(ex))
+            
 
         guiThread = th.Thread(target=self.guiLoop)
         self.receiveThread = th.Thread(target=self.receivLoop)
@@ -92,24 +120,19 @@ class Client:
             self.FDefault = Font(family=self.theme['text']['FFont'], size=int(self.theme['text']['SFont']))
             self.tformat = self.theme['main']['TitleFormat']
         except Exception as ex:
-            print(str(ex))
-            self.defaultConfig()
+            messagebox.showerror("/// Error ///", "Theme loading error\n" + str(ex))
+            self.win.quit()
 
         
             
         self.receiveThread.start()
 
     def defaultConfig(self):
-        messagebox.showerror("Error", "Theme loading error\n\nCheck client-cfg > settings > Theme")
+        messagebox.showerror("/// Error ///", "Theme loading error\n\nThe default theme will be loaded automatically\n\nIf the error persists, check the client configuration")
         ex_type, ex, tb = sys.exc_info()
         traceback.print_tb(tb)
-        try:
-            os.mkdir('themes')
-        except:
-            pass
-        f = open('themes\\default.thm', 'w')
-        f.write(
-"""{
+        
+        defText = """{
     "author":
     {
         "Author": "Danilus",
@@ -142,9 +165,13 @@ class Client:
         "BColor": "#FFFFFF",
         "FColor": "#000000"
     }
-}""")
+}"""
+
+        f = open('themes\\default.thm', 'w')
+        f.write(defText)
         f.close()
-        exit(0)
+        self.theme = json.loads(defText)
+        
 
     def guiLoop(self):
         self.win = Tk()
@@ -279,10 +306,10 @@ class Client:
                 com = message[1:].split(' ')
                 if com[0] == 'exit' or com[0] == 'stop':
                     self.disconnect()
-                """if com[0] == 'connect' and len(com) == 1:
+                if com[0] == 'connect' and len(com) == 1:
                     self.connect(self.host, self.port)
                 if com[0] == 'connect' and len(com) == 3:
-                    self.connect(com[1], com[2])"""
+                    self.connect(com[1], com[2])
             else:
                 self.sock.send(self.encrypt(message))
         except Exception as ex:
@@ -294,15 +321,15 @@ class Client:
     def disconnect(self):
         self.running = False
         self.sock.close()
-        self.writeLine("Disconnected.")
+        self.writeLine("Disconnected")
 
-    """def connect(self, host, port):
+    def connect(self, host, port):
         self.running = True
         self.writeLine(f"Connecting to {host}@{port}.")
-        del self.sock
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((host, port))
-        self.receiveThread.run()"""
+        self.receiveThread = th.Thread(target=self.receivLoop)
+        self.receiveThread.start()
 
     def stop(self):
         self.running = False
@@ -434,6 +461,17 @@ class Client:
         while self.running:
             try:
                 message = self.sock.recv(2048)
+                try:
+                    if (message == ""):
+                        try:  
+                            self.sock.send(self.encrypt('/ping'))
+                        except socket.error:  
+                            self.writeLine("Connection lost")
+                            self.sock.close()
+                            self.running = False
+                            break
+                except:
+                    pass
                 deMesg = ''
                 try: 
                     deMesg = message.decode('utf-8')
@@ -463,7 +501,13 @@ class Client:
                         
                         
                 else:
-                    self.form(self.decrypt(message))
+                    try:
+                        self.form(self.decrypt(message))
+                    except:
+                        self.writeLine("Connection lost")
+                        self.sock.close()
+                        self.running = False
+                        break
             except ConnectionAbortedError:
                 break
             except Exception as e:

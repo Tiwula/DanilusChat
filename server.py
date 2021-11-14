@@ -15,8 +15,17 @@ con = Console()
 
 try:
     response = requests.get("https://raw.githubusercontent.com/Danilus-s/DanilusChat/main/sfuncs.py")
-    with open('sfuncs.py', 'w') as f:
-        f.write(response.text)
+    try:
+        with open("sfuncs.py", "r") as f:
+            data = f.read()
+            if len(data) != len(response.text):
+                get = con.input(f'[cyan bold][XX-XX-XXXX XX:XX:XX][/] [yellow bold]<sfuncs>[/] "sfuncs" updated. Your filesize: {len(data)}; New filesize: {len(response.text)}. Update? [Y/n]')
+                if get.lower().replace(' ', '').startswith('y') or get.replace(' ', '') == '':
+                    with open('sfuncs.py', 'w') as f:
+                        f.write(response.text)
+    except:
+        with open('sfuncs.py', 'w') as f:
+            f.write(response.text)
 except:
     pass
 
@@ -28,19 +37,19 @@ try:
     with open('server-cfg.json') as f:
         settings = json.load(f)
 except:
-    f = open('server-cfg.json', 'w')
-    f.write(
-"""{
+    defText = """{
 	"IPhost": "127.0.0.1",
 	"PortHost": 9574,
-	"Password": 1234,
+	"Password": "1234",
 	"Debug": true,
 	"Formating": true,
 	"FormatingNick": true,
 	"MultiAccount": true
-}""")
+}"""
+    f = open('server-cfg.json', 'w')
+    f.write(defText)
     f.close()
-    exit()
+    settings = json.loads(defText)
 sf.settings = settings
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -171,6 +180,7 @@ def handle(client):
             if message[0:1] == '/':
                 com = str(message[1:]).split(' ')
                 if com[0] == 'admin' and not clients[client].admin and len(com) == 2:
+                    sf.log('debug', com[1] + ' ' + settings['Password'])
                     if com[1] == settings['Password']:
                         clients[client].admin = True
                         saveData(client)
@@ -193,7 +203,7 @@ def handle(client):
                         if clients[cl].displayNick == com[1]:
                             clients[cl].displayNick = com[2]
                             sf.log('debug', f'send "nick" to {clients[client].displayNick}')
-                            client.send(encrypt(clients[client].pubKey, f"<server -> me> nickname of {com[1]} set to {com[2]}"))
+                            client.send(encrypt(clients[cl].pubKey, f"<server -> me> nickname of {com[1]} set to {com[2]}"))
                             sf.broadcast(f"{com[1]} is now {com[2]}")
                             saveData(cl)
                             break
@@ -204,8 +214,9 @@ def handle(client):
                         sf.log('debug', clients[cl].displayNick)
                         if clients[cl].displayNick == sf.listJoin(com[1:]):
                             sf.log('debug','Found ' + clients[cl].displayNick)
-                            cl.send(encrypt(clients[client].pubKey, f"<server -> me> You were kicked by {clients[client].displayNick}."))
+                            cl.send(encrypt(clients[cl].pubKey, f"<server -> me> You were kicked by {clients[client].displayNick}."))
                             cl.close()
+                            clients.pop(cl)
                             sf.broadcast(f"{clients[cl].displayNick} kicked by {clients[client].displayNick}.")
                             break
 
@@ -218,8 +229,9 @@ def handle(client):
                         sf.log('debug', clients[cl].displayNick)
                         if clients[cl].displayNick == sf.listJoin(com[1:]):
                             sf.log('debug','Found ' + clients[cl].displayNick)
-                            cl.send(encrypt(clients[client].pubKey, f"<server -> me> You were banned by {clients[client].displayNick}."))
+                            cl.send(encrypt(clients[cl].pubKey, f"<server -> me> You were banned by {clients[client].displayNick}."))
                             cl.close()
+                            clients.pop(cl)
                             break
 
                 elif com[0] == 'banip' and clients[client].admin and len(com) == 2:
@@ -230,8 +242,9 @@ def handle(client):
                         sf.log('debug', clients[cl].displayNick)
                         if clients[cl].addr == com[1]:
                             sf.log('debug','Found ' + clients[cl].displayNick)
-                            cl.send(encrypt(clients[client].pubKey, f"<server -> me> You were banned by {clients[client].displayNick}."))
+                            cl.send(encrypt(clients[cl].pubKey, f"<server -> me> You were banned by {clients[client].displayNick}."))
                             cl.close()
+                            clients.pop(cl)
                             sf.broadcast(f"{clients[cl].displayNick} banned by {clients[client].displayNick}.")
                             break
 
@@ -345,7 +358,10 @@ def handle(client):
                 sf.broadcast(f"{nk} disconnected :(")
             except:
                 pass
-            sf.log("debug", f"{nk} disconnected.")
+            try:
+                sf.log("debug", f"{nk} disconnected.")
+            except:
+                sf.log("debug", f"disconnected.")
             sf.log("debug", ex)
             break
 
@@ -402,19 +418,21 @@ def receive():
                 nickname = client.recv(2048).decode('utf-8')
                 
 
-                if nickname in banNickList or addr[0] in banIpList:
-                    client.send('<server -> me> You were banned from this server.'.encode('utf-8'))
-                    client.close()
-                    continue
+                
                 nick = sf.prepareNick(nickname)
                 if not settings['FormatingNick']:
                     nick = sf.removeFormat(nick)
+
+                if nick in banNickList or addr[0] in banIpList:
+                    client.send('<server -> me> You were banned from this server.'.encode('utf-8'))
+                    client.close()
+                    continue
 
                 clients[client] = User(nick, addr[0], pubKey, privKey)
                 sf.addUser(client, nick, addr[0], pubKey, privKey)
                 sendToAll((client, nick, addr[0]), "new user")
 
-                sf.log("server", f"Connected with: {str(addr[0])} and with nickname: {nickname}.")
+                sf.log("server", f"Connected with: {str(addr[0])} and with nickname: {nick}({nickname}).")
                 
                 loadData(client)
                 saveData(client)
