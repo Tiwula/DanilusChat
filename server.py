@@ -131,6 +131,7 @@ def decrypt(privKey, message) -> bytes:
                     ).decode('utf-8')
 
 def loadData(client):
+    back = clients[client]
     try:
         f = open(f'userdata\\{clients[client].addr} {clients[client].nickname}.json', 'r')
         cli = json.load(f)
@@ -139,7 +140,8 @@ def loadData(client):
         clients[client].prefix = cli['prefix']
         clients[client].color = cli['color']
     except Exception as ex:
-        sf.log('server', f"Error loading data for user.")
+        clients[client] = back
+        sf.log('server', f"Error loading data for user {clients[client].displayNick}.")
         sf.log('server', ex)
 
 def saveData(client):
@@ -324,7 +326,8 @@ def handle(client):
 \t/ban [nick]
 \t/banip [nick]
 \t/unban [nick]
-\t/unbanip [nick]"""))
+\t/unbanip [nick]
+\t/admin [nick]"""))
 
             else:
                 mess = message
@@ -403,9 +406,9 @@ def receive():
                     client.send('<server -> me> You were banned from this server.'.encode('utf-8'))
                     client.close()
                     continue
+                nick = sf.prepareNick(nickname)
                 if not settings['FormatingNick']:
-                    nick = sf.removeFormat(nickname).replace(' ', '')
-                nick = sf.removeFont(nickname).replace(' ', '')
+                    nick = sf.removeFormat(nick)
 
                 clients[client] = User(nick, addr[0], pubKey, privKey)
                 sf.addUser(client, nick, addr[0], pubKey, privKey)

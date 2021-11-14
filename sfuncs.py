@@ -67,6 +67,13 @@ def removeFormat(text) -> str:
         txt = txt.replace(i, '')
     return txt
 
+def prepareNick(text) -> str:
+    txt = str(text)
+    flist = [ ' ', '/', '\\', ':', '*', '?', '"', '<', '>', '|' ]
+    for i in flist:
+        txt = txt.replace(i, '')
+    return txt
+
 def removeFont(text) -> str:
     txt = str(text)
     flist = [ '&n', '&m', '&l', '&o' ]
