@@ -19,6 +19,24 @@ args = sys.argv
 
 cfgDone = False
 
+if not os.path.isfile('client-cfg.json'):
+    defText = """{
+    "client": {
+        "IPhost": "127.0.0.1",
+        "PortHost": 9574,
+        "Nick": "User"
+    },
+    "settings": {
+        "Timestamp": true,
+        "Colored": true,
+        "Sounds": true,
+        "Theme": "default.thm"
+    }
+}"""
+    f = open('client-cfg.json', 'w')
+    f.write(defText)
+    f.close()
+
 if len(args) == 6:
     if args[1] == "launcher":
         HOST = args[2]
@@ -304,12 +322,38 @@ class Client:
                 self.history.pop(self.histLen)
             if message.startswith('!'):
                 com = message[1:].split(' ')
-                if com[0] == 'exit' or com[0] == 'stop':
+                textToRet = '[&c!&r] '
+                for i in com:
+                    textToRet = textToRet == '[&c!&r] ' and f"{textToRet}&b{i}&r" or f"{textToRet}: &e{i}&r"
+                textToRet = textToRet + ' > '
+                if com[0] == 'exit' or com[0] == 'stop' or com[0] == 'disconnect':
                     self.disconnect()
-                if com[0] == 'connect' and len(com) == 1:
+                    self.form(textToRet + "&a✔&r")
+                elif (com[0] == 'connect' or com[0] == 'conn') and len(com) == 1:
                     self.connect(self.host, self.port)
-                if com[0] == 'connect' and len(com) == 3:
+                    self.form(textToRet + "&a✔&r")
+                elif (com[0] == 'connect' or com[0] == 'conn') and len(com) == 3:
                     self.connect(com[1], com[2])
+                    self.form(textToRet + "&a✔&r")
+                elif com[0] == 'nick' and len(com) == 2:
+                    self.nick = com[1]
+                    self.form(textToRet + "&a✔&r")
+                elif com[0] == 'clear' and len(com) == 1:
+                    self.textArea.config(state='normal')
+                    self.textArea.delete('1.0', 'end')
+                    self.textArea.config(state='disabled')
+                    self.counter = 0
+                    self.form(textToRet + "&a✔&r")
+                elif com[0] == 'help' and len(com) == 1:
+                    self.form('''help:
+\texit|stop|disconnect
+\tconnect|conn [IP?] [Port?]
+\tnick [Nick]
+\tclear
+\thelp''')
+                    self.form(textToRet + "&a✔&r")
+                else:
+                    self.form(textToRet + "&c✘&r")
             else:
                 self.sock.send(self.encrypt(message))
         except Exception as ex:
@@ -335,92 +379,94 @@ class Client:
         self.running = False
         self.win.destroy()
         self.sock.close()
-        exit(0)
 
     def form(self, txt):
-        text = txt
+        tmp = ''
+
         if settings['settings']['Timestamp']:
-                d = dt.now()
-                newd = d.strftime('&7%H:%M:%S&r ')
-                text = newd + text
-        poss = []
-        cod = []
-        while True:
-            i = text.find('&')
-            
-            if i == -1:
-                break
+            d = dt.now()
+            newd = d.strftime('&7%H:%M:%S&r ')
+            tmp = newd + txt
 
-            code = text[i:i+2]
-            pos = i+2
-            text = text[:i] + text[i+2:]
-            poss.append(i)
-            cod.append(code)
-        self.writeLine(text)
-        for i in range(0, len(poss)):
-            
-            col = ''
+        text = str(tmp).split('\n')
 
-            if settings['settings']['Colored']:
-                #Color
-                if cod[i] == '&0':
-                    col = "ColorBlack"
-                elif cod[i] == '&1':
-                    col = "ColorDBlue"
-                elif cod[i] == '&2':
-                    col = "ColorDGreen"
-                elif cod[i] == '&3':
-                    col = "ColorDAqua"
-                elif cod[i] == '&4':
-                    col = "ColorDRed"
-                elif cod[i] == '&5':
-                    col = "ColorDPurple"
-                elif cod[i] == '&6':
-                    col = "ColorGold"
-                elif cod[i] == '&7':
-                   col = "ColorGray"
-                elif cod[i] == '&8':
-                    col = "ColorDGray"
-                elif cod[i] == '&9':
-                    col = "ColorBlue"
-                elif cod[i] == '&a':
-                    col = "ColorGreen"
-                elif cod[i] == '&b':
-                    col = "ColorAqua"
-                elif cod[i] == '&c':
-                    col = "ColorRed"
-                elif cod[i] == '&d':
-                    col = "ColorLPurple"
-                elif cod[i] == '&e':
-                     col = "ColorYellow"
-                elif cod[i] == '&f':
-                     col = "ColorWhite"
+        for m in range(0, len(text)):
+            poss = []
+            cod = []
+            while True:
+                i = text[m].find('&')
+                
+                if i == -1:
+                    break
 
-                #Font
-                elif cod[i] == '&l':
-                    col = "FontBold"
-                elif cod[i] == '&o':
-                    col = "FontItalic"
-                elif cod[i] == '&n':
-                    col = "FontUnderline"
-                elif cod[i] == '&m':
-                    col = "FontOverstrike"
+                code = text[m][i:i+2]
+                pos = i+2
+                text[m] = text[m][:i] + text[m][i+2:]
+                poss.append(i)
+                cod.append(code)
+            self.writeLine(text[m], m == len(text) )
+            for i in range(0, len(poss)):
+                
+                col = ''
 
-                #Reset
-                elif cod[i] == '&r':
-                    col = "ColorReset"
+                if settings['settings']['Colored']:
+                    #Color
+                    if cod[i] == '&0':
+                        col = "ColorBlack"
+                    elif cod[i] == '&1':
+                        col = "ColorDBlue"
+                    elif cod[i] == '&2':
+                        col = "ColorDGreen"
+                    elif cod[i] == '&3':
+                        col = "ColorDAqua"
+                    elif cod[i] == '&4':
+                        col = "ColorDRed"
+                    elif cod[i] == '&5':
+                        col = "ColorDPurple"
+                    elif cod[i] == '&6':
+                        col = "ColorGold"
+                    elif cod[i] == '&7':
+                        col = "ColorGray"
+                    elif cod[i] == '&8':
+                        col = "ColorDGray"
+                    elif cod[i] == '&9':
+                        col = "ColorBlue"
+                    elif cod[i] == '&a':
+                        col = "ColorGreen"
+                    elif cod[i] == '&b':
+                        col = "ColorAqua"
+                    elif cod[i] == '&c':
+                        col = "ColorRed"
+                    elif cod[i] == '&d':
+                        col = "ColorLPurple"
+                    elif cod[i] == '&e':
+                        col = "ColorYellow"
+                    elif cod[i] == '&f':
+                        col = "ColorWhite"
 
+                    #Font
+                    elif cod[i] == '&l':
+                        col = "FontBold"
+                    elif cod[i] == '&o':
+                        col = "FontItalic"
+                    elif cod[i] == '&n':
+                        col = "FontUnderline"
+                    elif cod[i] == '&m':
+                        col = "FontOverstrike"
 
-            if col != '':
-                self.textArea.config(state='normal')
-                if i+1 == len(poss):
-                    self.textArea.tag_add(col, str(self.counter)+'.'+str(poss[i]), str(self.counter)+'.'+str(len(text)))
-                else:
-                    self.textArea.tag_add(col, str(self.counter)+'.'+str(poss[i]), str(self.counter)+'.'+str(poss[i+1]))
-                self.textArea.config(state='disabled')
+                    #Reset
+                    elif cod[i] == '&r':
+                        col = "ColorReset"
 
+                if col != '':
+                    self.textArea.config(state='normal')
+                    if i+1 == len(poss):
+                        self.textArea.tag_add(col, str(self.counter)+'.'+str(poss[i]), str(self.counter)+'.'+str(len(text)))
+                    else:
+                        self.textArea.tag_add(col, str(self.counter)+'.'+str(poss[i]), str(self.counter)+'.'+str(poss[i+1]))
+                    self.textArea.config(state='disabled')
 
-    def writeLine(self, message):
+    def writeLine(self, message, beep=True):
         if self.guiDone:
             self.textArea.config(state='normal')
             mes = message
@@ -430,7 +476,7 @@ class Client:
             if str(message).find('\n'):
                 self.counter += self.findNL(message)
             self.counter += 1
-            if self.win.focus_get() == None and settings['settings']['Sounds']:
+            if self.win.focus_get() == None and settings['settings']['Sounds'] and beep:
                 winsound.Beep(600, 100)
 
     def encrypt(self, message):
