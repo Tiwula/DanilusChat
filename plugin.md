@@ -33,6 +33,18 @@
 - `getPlugins() -> dict` возвращает список загруженных плагинов в формате 
 
   - `{"name": "pluginName", "author": "Author", "version": "1.0"}` 
+  
+- `banNick(nick) -> None` бан по нику
+
+- `banIP(ip) -> None` бан по IP
+
+- `unbanNick(nick) -> None` разбан по нику
+
+- `unbanIP(ip) -> None` разбан по IP
+
+- `getBan(nick, addr) -> bool` проверяет, забанен ли пользователь по IP/нику
+
+- `canSend: bool` по умолчанию True, если False сервер не будет обрабатывать полученное сообщение (сообщение не будет отправлено всем, а команда не будет исполнена)
 
 ### Калбэки (callback)
 
