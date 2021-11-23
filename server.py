@@ -73,6 +73,7 @@ except:
 
 plug = []
 pluginfo = {}
+debugPlugInfo = {}
 for path in os.listdir('plugins'):
     try:
         if path[len(path)-3:] == '.py':
@@ -83,6 +84,7 @@ for path in os.listdir('plugins'):
                 pluginfo[pname] = plug.plugininfo
             except:
                 pluginfo[pname] = {"name": pname, "author": "NoName", "version": "1.0"}
+            debugPlugInfo[plug[len(plug)-1]] = pname
     except Exception as ex:
         sf.log('debug', 'Error loading plugin '+pname)
         sf.log('debug', ex)
@@ -94,8 +96,10 @@ for i in plug:
     except AttributeError:
         pass
     except Exception as ex:
-        sf.log('debug', 'Error loading plugin '+pname)
+        sf.log('debug', 'Error loading plugin '+debugPlugInfo[i])
         sf.log('debug', ex)
+        with open('logs\\'+debugPlugInfo[i]+'.log', 'w') as f:
+                    traceback.print_exc(file=f)
 
 
 def sendToAll(data, event="receive message") -> None:
@@ -106,8 +110,11 @@ def sendToAll(data, event="receive message") -> None:
             except AttributeError:
                 pass
             except Exception as ex:
-                sf.log('debug', 'Error execute plugin callback '+pname)
+                sf.log('debug', 'Error execute plugin callback '+debugPlugInfo[i])
                 sf.log('debug', ex)
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                with open('logs\\'+debugPlugInfo[i]+'.log', 'w') as f:
+                    traceback.print_exc(file=f)
     elif event == "new user":
         for i in plug:
             try:
@@ -115,8 +122,10 @@ def sendToAll(data, event="receive message") -> None:
             except AttributeError:
                 pass
             except Exception as ex:
-                sf.log('debug', 'Error execute plugin callback '+pname)
+                sf.log('debug', 'Error execute plugin callback '+debugPlugInfo[i])
                 sf.log('debug', ex)
+                with open('logs\\'+debugPlugInfo[i]+'.log', 'w') as f:
+                    traceback.print_exc(file=f)
 
 class User:
     def __init__(self, nickname, addr, pubKey, privKey, admin=False, prefix=None, color='&r'):
@@ -166,190 +175,201 @@ def saveData(client):
         json.dump(cli, f)
 
 def handle(client):
+    sf.clients = clients
     while True:
-        sf.clients = clients
         #saveData(client)
+        sf.canSend = True
         try:
             message = decrypt(clients[client].privKey, client.recv(2048)).strip()
             if not settings['Formating']:
                 message = sf.removeFormat(message)
             if message == '':
                 continue
-            sendToAll((client, message))
             sf.log(clients[client].displayNick, message)
-            if message[0:1] == '/':
-                com = str(message[1:]).split(' ')
-                if com[0] == 'admin' and not clients[client].admin and len(com) == 2:
-                    sf.log('debug', com[1] + ' ' + settings['Password'])
-                    if com[1] == settings['Password']:
-                        clients[client].admin = True
-                        saveData(client)
-                        client.send(encrypt(clients[client].pubKey, "<server -> me> Successfully"))
-                    else:
-                        client.send(encrypt(clients[client].pubKey, "<server -> me> Unsuccessfully"))
+            sendToAll((client, message))
+            if sf.canSend:
+                if message[0:1] == '/':
+                    com = str(message[1:]).split(' ')
+                    if com[0] == 'admin' and not clients[client].admin and len(com) == 2:
+                        sf.log('debug', com[1] + ' ' + settings['Password'])
+                        if com[1] == settings['Password']:
+                            clients[client].admin = True
+                            saveData(client)
+                            client.send(encrypt(clients[client].pubKey, "<server -> me> Successfully"))
+                        else:
+                            client.send(encrypt(clients[client].pubKey, "<server -> me> Unsuccessfully"))
 
-                elif com[0] == 'admin' and clients[client].admin and len(com) == 2:
+                    elif com[0] == 'admin' and clients[client].admin and len(com) == 2:
+                            for cl in clients:
+                                if clients[cl].displayNick == com[1]:
+                                    clients[cl].admin = True
+                                    saveData(cl)
+                                    client.send(encrypt(clients[client].pubKey, "<server -> me> Successfully"))
+                                    break
+                            client.send(encrypt(clients[client].pubKey, "<server -> me> Unsuccessfully"))
+                            
+                    elif com[0] == 'unadmin' and clients[client].admin and len(com) == 2:
+                            for cl in clients:
+                                if clients[cl].displayNick == com[1]:
+                                    clients[cl].admin = False
+                                    saveData(cl)
+                                    client.send(encrypt(clients[client].pubKey, "<server -> me> Successfully"))
+                                    break
+                            client.send(encrypt(clients[client].pubKey, "<server -> me> Unsuccessfully"))
+
+                    elif com[0] == 'nick' and clients[client].admin and len(com) == 3:
+                        sf.log('debug', clients)
                         for cl in clients:
                             if clients[cl].displayNick == com[1]:
-                                clients[cl].admin = True
+                                clients[cl].displayNick = com[2]
+                                sf.log('debug', f'send "nick" to {clients[client].displayNick}')
+                                client.send(encrypt(clients[cl].pubKey, f"<server -> me> nickname of {com[1]} set to {com[2]}"))
+                                sf.broadcast(f"{com[1]} is now {com[2]}")
                                 saveData(cl)
-                                client.send(encrypt(clients[client].pubKey, "<server -> me> Successfully"))
-                            else: 
-                                client.send(encrypt(clients[client].pubKey, "<server -> me> Unsuccessfully"))
+                                break
 
-                elif com[0] == 'nick' and clients[client].admin and len(com) == 3:
-                    sf.log('debug', clients)
-                    for cl in clients:
-                        if clients[cl].displayNick == com[1]:
-                            clients[cl].displayNick = com[2]
-                            sf.log('debug', f'send "nick" to {clients[client].displayNick}')
-                            client.send(encrypt(clients[cl].pubKey, f"<server -> me> nickname of {com[1]} set to {com[2]}"))
-                            sf.broadcast(f"{com[1]} is now {com[2]}")
-                            saveData(cl)
-                            break
+                    elif com[0] == 'kick' and clients[client].admin and len(com) >= 2:
+                        sf.log('debug', 'start search name')
+                        for cl in clients:
+                            sf.log('debug', clients[cl].displayNick)
+                            if clients[cl].displayNick == sf.listJoin(com[1:]) and clients[cl].addr != settings['IPhost']:
+                                sf.log('debug','Found ' + clients[cl].displayNick)
+                                cl.send(encrypt(clients[cl].pubKey, f"<server -> me> You were kicked by {clients[client].displayNick}."))
+                                cl.close()
+                                clients.pop(cl)
+                                sf.broadcast(f"{clients[cl].displayNick} kicked by {clients[client].displayNick}.")
+                                break
 
-                elif com[0] == 'kick' and clients[client].admin and len(com) >= 2:
-                    sf.log('debug', 'start search name')
-                    for cl in clients:
-                        sf.log('debug', clients[cl].displayNick)
-                        if clients[cl].displayNick == sf.listJoin(com[1:]):
-                            sf.log('debug','Found ' + clients[cl].displayNick)
-                            cl.send(encrypt(clients[cl].pubKey, f"<server -> me> You were kicked by {clients[client].displayNick}."))
-                            cl.close()
-                            clients.pop(cl)
-                            sf.broadcast(f"{clients[cl].displayNick} kicked by {clients[client].displayNick}.")
-                            break
+                    elif com[0] == 'ban' and clients[client].admin and len(com) >= 2:
+                        sf.log('debug', 'start search name')
+                        
+                        for cl in clients:
+                            sf.log('debug', clients[cl].displayNick)
+                            if clients[cl].displayNick == sf.listJoin(com[1:]) and clients[cl].addr != settings['IPhost']:
+                                sf.log('debug','Found ' + clients[cl].displayNick)
+                                sf.banNick(clients[cl].nickname)
+                                cl.send(encrypt(clients[cl].pubKey, f"<server -> me> You were banned by {clients[client].displayNick}."))
+                                cl.close()
+                                clients.pop(cl)
+                                sf.broadcast(f"{clients[cl].displayNick} banned by {clients[client].displayNick}.")
+                                break
 
-                elif com[0] == 'ban' and clients[client].admin and len(com) >= 2:
-                    sf.log('debug', 'start search name')
-                    if not sf.listJoin(com[1:]) in banNickList: 
-                        banNickList.append(sf.listJoin(com[1:]))
-                        sf.broadcast(f"{sf.listJoin(com[1:])} banned by {clients[client].displayNick}.")
-                    for cl in clients:
-                        sf.log('debug', clients[cl].displayNick)
-                        if clients[cl].displayNick == sf.listJoin(com[1:]):
-                            sf.log('debug','Found ' + clients[cl].displayNick)
-                            cl.send(encrypt(clients[cl].pubKey, f"<server -> me> You were banned by {clients[client].displayNick}."))
-                            cl.close()
-                            clients.pop(cl)
-                            break
+                    elif com[0] == 'banip' and clients[client].admin and len(com) == 2:
+                        sf.banIP(com[1])
+                        for cl in clients:
+                            sf.log('debug', clients[cl].displayNick)
+                            if clients[cl].addr == com[1]  and clients[cl].addr != settings['IPhost']:
+                                sf.log('debug','Found ' + clients[cl].displayNick)
+                                cl.send(encrypt(clients[cl].pubKey, f"<server -> me> You were banned by {clients[client].displayNick}."))
+                                cl.close()
+                                clients.pop(cl)
+                                sf.broadcast(f"{clients[cl].displayNick} banned by {clients[client].displayNick}.")
+                                break
 
-                elif com[0] == 'banip' and clients[client].admin and len(com) == 2:
-                    if not com[1] in banIpList: 
-                        banIpList.append(com[1])
-                        sf.broadcast(f"{clients[cl].displayNick} banned by {clients[client].displayNick}.")
-                    for cl in clients:
-                        sf.log('debug', clients[cl].displayNick)
-                        if clients[cl].addr == com[1]:
-                            sf.log('debug','Found ' + clients[cl].displayNick)
-                            cl.send(encrypt(clients[cl].pubKey, f"<server -> me> You were banned by {clients[client].displayNick}."))
-                            cl.close()
-                            clients.pop(cl)
-                            sf.broadcast(f"{clients[cl].displayNick} banned by {clients[client].displayNick}.")
-                            break
+                    elif com[0] == 'unban' and clients[client].admin and len(com) >= 2:
+                        try:
+                            sf.unbanNick(sf.listJoin(com[1:]))
+                        except:
+                            pass
 
-                elif com[0] == 'unban' and clients[client].admin and len(com) >= 2:
-                    try:
-                        banNickList.remove(sf.listJoin(com[1:]))
-                    except:
-                        pass
+                    elif com[0] == 'unbanip' and clients[client].admin and len(com) == 2:
+                        try:
+                            sf.unbanIP(com[1])
+                        except:
+                            pass
 
-                elif com[0] == 'unbanip' and clients[client].admin and len(com) == 2:
-                    try:
-                        banIpList.remove(com[1])
-                    except:
-                        pass
+                    elif com[0] == 'dm' and len(com) >= 3:
+                        sf.log('debug', f'dm from {clients[client].displayNick} to {com[1]}: {sf.listJoin(com[2:])}')
+                        for cl in clients:
+                            if clients[cl].displayNick == com[1]:
+                                client.send(encrypt(clients[client].pubKey, f"<me -> {com[1]}> {sf.listJoin(com[2:])}"))
+                                cl.send(encrypt(clients[cl].pubKey, f"<{clients[client].displayNick} -> me> {sf.listJoin(com[2:])}"))
+                                break
 
-                elif com[0] == 'dm' and len(com) >= 3:
-                    sf.log('debug', f'dm from {clients[client].displayNick} to {com[1]}: {sf.listJoin(com[2:])}')
-                    for cl in clients:
-                        if clients[cl].displayNick == com[1]:
-                            client.send(encrypt(clients[client].pubKey, f"<me -> {com[1]}> {sf.listJoin(com[2:])}"))
-                            cl.send(encrypt(clients[cl].pubKey, f"<{clients[client].displayNick} -> me> {sf.listJoin(com[2:])}"))
-                            break
+                    elif com[0] == 'me' and len(com) >= 2:
+                        sf.log('debug', f'me from {clients[client].displayNick}: {sf.listJoin(com[1:])}')
+                        sf.broadcast(f"*{clients[client].displayNick} {sf.removeFormat(sf.listJoin(com[1:]))}")
 
-                elif com[0] == 'me' and len(com) >= 2:
-                    sf.log('debug', f'me from {clients[client].displayNick}: {sf.listJoin(com[1:])}')
-                    sf.broadcast(f"*{clients[client].displayNick} {sf.removeFormat(sf.listJoin(com[1:]))}")
-
-                elif com[0] == 'try' and len(com) >= 2:
-                    sf.log('debug', f'try from {clients[client].displayNick}: {sf.listJoin(com[1:])}')
-                    tr = bool(random.randint(0,1))
-                    if tr:
-                        sf.broadcast(f"*{clients[client].displayNick} {sf.removeFormat(sf.listJoin(com[1:]))} &2(Successfully)&r")
-                    else:
-                        sf.broadcast(f"*{clients[client].displayNick} {sf.removeFormat(sf.listJoin(com[1:]))} &4(Unsuccessfully)&r")
-
-                elif com[0] == 'do' and len(com) >= 2:
-                    sf.log('debug', f'do from {clients[client].displayNick}: {sf.listJoin(com[1:])}')
-                    sf.broadcast(f"*{sf.removeFormat(sf.listJoin(com[1:]))} &7({clients[client].displayNick})&r")
-
-                elif com[0] == 'list' and len(com) == 1:
-                    sf.log('debug', f'send list to {clients[client].displayNick}')
-                    text = "<server -> me> list of connected users:"
-                    for cl in clients:
-                        if clients[cl].admin:
-                            text = text + f'\na {clients[cl].displayNick} > {clients[cl].addr}'
+                    elif com[0] == 'try' and len(com) >= 2:
+                        sf.log('debug', f'try from {clients[client].displayNick}: {sf.listJoin(com[1:])}')
+                        tr = bool(random.randint(0,1))
+                        if tr:
+                            sf.broadcast(f"*{clients[client].displayNick} {sf.removeFormat(sf.listJoin(com[1:]))} &2(Successfully)&r")
                         else:
-                            text = text + f'\n- {clients[cl].displayNick} > {clients[cl].addr}'
-                    client.send(encrypt(clients[client].pubKey, text))
+                            sf.broadcast(f"*{clients[client].displayNick} {sf.removeFormat(sf.listJoin(com[1:]))} &4(Unsuccessfully)&r")
 
-                elif com[0] == 'color' and clients[client].admin and len(com) >= 3:
-                    col = sf.removeFont(com[1][0:2])
-                    for cl in clients:
-                        if clients[cl].displayNick == com[1]:
-                            clients[cl].color = col
-                            saveData(cl)
-                            break
+                    elif com[0] == 'do' and len(com) >= 2:
+                        sf.log('debug', f'do from {clients[client].displayNick}: {sf.listJoin(com[1:])}')
+                        sf.broadcast(f"*{sf.removeFormat(sf.listJoin(com[1:]))} &7({clients[client].displayNick})&r")
 
-                elif com[0] == 'color' and len(com) == 2:
-                    col = sf.removeFont(com[1][0:2])
-                    clients[client].color = col
-                    saveData(client)
-                
-                elif com[0] == 'prefix' and clients[client].admin and len(com) >= 3:
-                    for cl in clients:
-                        if clients[cl].displayNick == com[1]:
-                            clients[cl].prefix = sf.removeFont(sf.listJoin(com[2:]))
-                            if sf.removeFont(sf.listJoin(com[2:])) == '' or sf.removeFont(sf.listJoin(com[2:])) == 'remove':
-                                clients[cl].prefix = None
-                            saveData(cl)
-                            break
+                    elif com[0] == 'list' and len(com) == 1:
+                        sf.log('debug', f'send list to {clients[client].displayNick}')
+                        text = "<server -> me> list of connected users:"
+                        for cl in clients:
+                            if clients[cl].admin:
+                                text = text + f'\na {clients[cl].displayNick} > {clients[cl].addr}'
+                            else:
+                                text = text + f'\n- {clients[cl].displayNick} > {clients[cl].addr}'
+                        client.send(encrypt(clients[client].pubKey, text))
 
-                elif com[0] == 'prefix' and len(com) >= 2:
-                    clients[client].prefix = sf.removeFont(sf.listJoin(com[1:]))
-                    if sf.removeFont(sf.listJoin(com[1:])) == '' or sf.removeFont(sf.listJoin(com[1:])) == 'remove':
-                        clients[client].prefix = None
-                    saveData(client)
-                
+                    elif com[0] == 'color' and clients[client].admin and len(com) >= 3:
+                        col = sf.removeFont(com[1][0:2])
+                        for cl in clients:
+                            if clients[cl].displayNick == com[1]:
+                                clients[cl].color = col
+                                saveData(cl)
+                                break
 
-                elif com[0] == 'help' and len(com) == 1:
-                    sf.log('debug', f'send help to {clients[client].displayNick}')
-                    client.send(encrypt(clients[client].pubKey, """<server -> me> help:
+                    elif com[0] == 'color' and len(com) == 2:
+                        col = sf.removeFont(com[1][0:2])
+                        clients[client].color = col
+                        saveData(client)
+                    
+                    elif com[0] == 'prefix' and clients[client].admin and len(com) >= 3:
+                        for cl in clients:
+                            if clients[cl].displayNick == com[1]:
+                                clients[cl].prefix = sf.removeFont(sf.listJoin(com[2:]))
+                                if sf.removeFont(sf.listJoin(com[2:])) == '' or sf.removeFont(sf.listJoin(com[2:])) == 'remove':
+                                    clients[cl].prefix = None
+                                saveData(cl)
+                                break
+
+                    elif com[0] == 'prefix' and len(com) >= 2:
+                        clients[client].prefix = sf.removeFont(sf.listJoin(com[1:]))
+                        if sf.removeFont(sf.listJoin(com[1:])) == '' or sf.removeFont(sf.listJoin(com[1:])) == 'remove':
+                            clients[client].prefix = None
+                        saveData(client)
+                    
+
+                    elif com[0] == 'help' and len(com) == 1:
+                        sf.log('debug', f'send help to {clients[client].displayNick}')
+                        client.send(encrypt(clients[client].pubKey, """<server -> me> help:
 \t/dm [nick] [message]
 \t/me [message]
 \t/do [message]
 \t/try [message]
 \t/help
-\t/color [foramtColor] [nick?]
+\t/color [formatColor] [nick?]
 \t/prefix [nick?] [prefix or 'remove']
 \t/list"""))
-                    if clients[client].admin:
-                        client.send(encrypt(clients[client].pubKey, """/kick [nick]
+                        if clients[client].admin:
+                            client.send(encrypt(clients[client].pubKey, """\t/kick [nick]
 \t/ban [nick]
 \t/banip [nick]
 \t/unban [nick]
 \t/unbanip [nick]
 \t/admin [nick]"""))
 
-            else:
-                mess = message
-                mess = f'<{clients[client].color}{clients[client].displayNick}&r> ' + message
-                if clients[client].prefix:
-                    mess = f'[{clients[client].prefix}&r] ' + mess
-                if clients[client].admin:
-                    mess = '[&cAdmin&r] ' + mess
-                sf.broadcast(mess)
+                else:
+                    if sf.canSend:
+                        mess = message
+                        mess = f'<{clients[client].color}{clients[client].displayNick}&r> ' + message
+                        if clients[client].prefix:
+                            mess = f'[{clients[client].prefix}&r] ' + mess
+                        if clients[client].admin:
+                            mess = '[&cAdmin&r] ' + mess
+                        sf.broadcast(mess)
+                    sf.canSend = True
         except Exception as ex:
             try:
                 nk = clients[client].displayNick
@@ -367,7 +387,6 @@ def handle(client):
 
 def stop():
     sf.log("server", "server stoped.")
-    running = False
     server.close()
     exit(0)
 
@@ -423,24 +442,24 @@ def receive():
                 if not settings['FormatingNick']:
                     nick = sf.removeFormat(nick)
 
-                if nick in banNickList or addr[0] in banIpList:
-                    client.send('<server -> me> You were banned from this server.'.encode('utf-8'))
+                if sf.getBan(nick, addr[0]):
+                    client.send(encrypt(pubKey, '<server -> me> You were banned from this server.'))
                     client.close()
                     continue
 
                 clients[client] = User(nick, addr[0], pubKey, privKey)
                 sf.addUser(client, nick, addr[0], pubKey, privKey)
                 sendToAll((client, nick, addr[0]), "new user")
-
-                sf.log("server", f"Connected with: {str(addr[0])} and with nickname: {nick}({nickname}).")
                 
                 loadData(client)
                 saveData(client)
 
+                sf.log("server", f"Connected with: {str(addr[0])} and with nickname: {clients[client].displayNick}({clients[client].nickname}).")
+
                 thread = th.Thread(target=handle, args=(client,))
                 thread.start()
                 
-                sf.broadcast(f"{nickname} connected! Have fun :)")
+                sf.broadcast(f"{clients[client].displayNick} connected! Have fun :)")
             else:
                 client.close()
         except Exception as ex:
