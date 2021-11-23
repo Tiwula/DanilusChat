@@ -34,6 +34,8 @@ except:
     pass
 logname = d.strftime('logs\\server_%d-%m-%Y_%H.%M.%S.log')
 
+canSend = True
+
 def log(fro, message) -> None:
     if fro != 'debug' or fro == 'debug' and settings['Debug']:
         d = dt.now()
@@ -83,29 +85,41 @@ def removeFont(text) -> str:
     return txt
 
 def banNick(nick) -> None:
-    f = open('bannick-list.txt')
-    text = f.read()
-    f.close()
+    text = ""
+    try:
+        f = open('bannick-list.txt')
+        text = f.read()
+        f.close()
+    except:
+        pass
     curList = text.split('\n')
     if not nick in curList:
-        f = open(open('bannick-list.txt', 'a'))
+        f = open('bannick-list.txt', 'a')
         f.write(nick + '\n')
         f.close()
 
 def banIP(ip) -> None:
-    f = open('banip-list.txt')
-    text = f.read()
-    f.close()
+    text = ""
+    try:
+        f = open('banip-list.txt')
+        text = f.read()
+        f.close()
+    except:
+        pass
     curList = text.split('\n')
     if not ip in curList:
-        f = open(open('banip-list.txt', 'a'))
+        f = open('banip-list.txt', 'a')
         f.write(ip + '\n')
         f.close()
 
 def unbanNick(nick) -> None:
-    f = open('bannick-list.txt')
-    text = f.read()
-    f.close()
+    text = ""
+    try:
+        f = open('bannick-list.txt')
+        text = f.read()
+        f.close()
+    except:
+        pass
     curList = text.split('\n')
     if nick in curList:
         curList.remove(nick)
@@ -115,17 +129,44 @@ def unbanNick(nick) -> None:
         f.close()
 
 def unbanIP(ip) -> None:
-    f = open('banip-list.txt')
-    text = f.read()
-    f.close()
+    text = ""
+    try:
+        f = open('banip-list.txt')
+        text = f.read()
+        f.close()
+    except:
+        pass
     curList = text.split('\n')
     if ip in curList:
         curList.remove(ip)
         textToWrite = listJoin(curList, '\n')
-        f = open(open('banip-list.txt', 'w'))
+        f = open('banip-list.txt', 'w')
         f.write(textToWrite)
         f.close()
     
+def getBan(nick, addr) -> bool:
+    text = []
+    ret = False
+    try:
+        with open('banip-list.txt', 'r') as f:
+            text = f.read().split('\n')
+    except:
+        pass
+    if addr in text:
+        ret = True
+
+    try:
+        with open('bannick-list.txt', 'r') as f:
+            text = f.read().split('\n')
+    except:
+        pass
+    if nick in text:
+        ret = True
+
+    return ret
+    
+
+
 
 def send(client, message):
     client.send(encrypt(clients[client].pubKey, message))
