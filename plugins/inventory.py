@@ -51,6 +51,8 @@ def receive(data):
             for cl in clients:
                 if clients[cl].displayNick == com[1]:
                     text = f"{clients[cl].displayNick}'s inventory:"
+                    counter = 0
                     for i in inventory[cl]:
-                        text = f"\n\t{i}"
+                        text = text + f"\n\t[{counter+1}] {i}"
+                        counter+=1
                     sf.send(client, text)
