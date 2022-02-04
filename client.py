@@ -333,7 +333,7 @@ class Client:
                     self.connect(self.host, self.port)
                     self.form(textToRet + "&a✔&r")
                 elif (com[0] == 'connect' or com[0] == 'conn') and len(com) == 3:
-                    self.connect(com[1], com[2])
+                    self.connect(com[1], int(com[2]))
                     self.form(textToRet + "&a✔&r")
                 elif com[0] == 'nick' and len(com) == 2:
                     self.nick = com[1]
@@ -404,7 +404,8 @@ class Client:
                 text[m] = text[m][:i] + text[m][i+2:]
                 poss.append(i)
                 cod.append(code)
-            self.writeLine(text[m], m == len(text) )
+            #self.writeLine(text[m], m == len(text) )
+            self.writeLine(text[m])
             for i in range(0, len(poss)):
                 
                 col = ''
