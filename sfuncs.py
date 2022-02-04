@@ -2,12 +2,25 @@ from datetime import datetime as dt
 from rich.console import Console
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
-import os
+import os, json
 
 con = Console()
 
+def getID():
+    count = 0
+    for i in os.listdir('userdata'):
+        if i[len(i)-5:] == ".json":
+            count += 1
+    return count
+
+
+
 class User:
-    def __init__(self, nickname, addr, pubKey, privKey, admin=False, prefix=None, color='&r'):
+    def __init__(self, nickname, addr, pubKey, privKey, admin=False, prefix=None, color='&r', id=None):
+        if id:
+            self.id = id
+        else:
+            self.id = getID()
         self.nickname = nickname
         self.admin = admin
         self.addr = addr
@@ -16,6 +29,7 @@ class User:
         self.prefix = prefix
         self.color = color
         self.displayNick = nickname
+        
 
 clients = {}
 
@@ -37,13 +51,24 @@ logname = d.strftime('logs\\server_%d-%m-%Y_%H.%M.%S.log')
 canSend = True
 
 def log(fro, message) -> None:
-    if fro != 'debug' or fro == 'debug' and settings['Debug']:
+    try:
         d = dt.now()
         newd = d.strftime('[%d-%m-%Y %H:%M:%S]')
         f = open(logname, 'a')
         f.write(f'{newd} <{fro}> {message}' + '\n')
-        con.print(f'[cyan bold]{newd}[/] [yellow bold]<{fro}>[/] {message}')
         f.close()
+        if fro != 'debug' or fro == 'debug' and settings['Debug']:
+            con.print(f'[cyan bold]{newd}[/] [yellow bold]<{fro}>[/] {message}')
+        
+    except:
+        d = dt.now()
+        newd = d.strftime('[%d-%m-%Y %H:%M:%S]')
+        f = open(logname, 'a')
+        f.write(f'{newd} <{fro}> {message}' + '\n')
+        f.close()
+        if fro != 'debug' or fro == 'debug' and settings['Debug']:
+            con.print(f'[cyan bold]{newd}[/] [yellow bold]<!>[/] {str(message)}')
+        
 
 def encrypt(pubKey ,message) -> str:
     message = str(message).encode('utf-8')
@@ -124,7 +149,7 @@ def unbanNick(nick) -> None:
     if nick in curList:
         curList.remove(nick)
         textToWrite = listJoin(curList, '\n')
-        f = open(open('bannick-list.txt', 'w'))
+        f = open('bannick-list.txt', 'w')
         f.write(textToWrite)
         f.close()
 
@@ -166,7 +191,37 @@ def getBan(nick, addr) -> bool:
     return ret
     
 
+def loadData(client):
+    back = clients[client]
+    try:
+        f = open(f'userdata\\{clients[client].addr} {clients[client].nickname}.json', 'r')
+        cli = json.load(f)
+        clients[client].id = cli['id']
+        clients[client].displayNick = cli['displayNick']
+        clients[client].admin = cli['admin']
+        clients[client].prefix = cli['prefix']
+        clients[client].color = cli['color']
+    except Exception as ex:
+        clients[client] = back
+        log('server', f"Error loading data for user {clients[client].displayNick}.")
+        log('server', ex)
 
+def saveData(client):
+    cli = {}
+    cli['id'] = clients[client].id
+    cli['addr'] = clients[client].addr
+    cli['nickname'] = clients[client].nickname
+    cli['admin'] = clients[client].admin
+    cli['prefix'] = clients[client].prefix
+    cli['color'] = clients[client].color
+    cli['displayNick'] = clients[client].displayNick
+    with open(f'userdata\\{clients[client].addr} {clients[client].nickname}.json', 'w') as f:
+        json.dump(cli, f)
+
+def dump(f):
+    dat = globals()
+    for i in dat:
+        f.write(str(i) + "\t\t = \t" + str(dat[i]) + "\n") 
 
 def send(client, message):
     client.send(encrypt(clients[client].pubKey, message))
