@@ -4,7 +4,7 @@ import tkinter
 from tkinter.font import Font
 from tkinter.constants import *
 import tkinter.scrolledtext
-from tkinter import Tk, messagebox
+from tkinter import Tk
 from datetime import datetime as dt
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -12,8 +12,19 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import serialization
 import sys, traceback, os
-import winsound
 import json
+
+platf = ""
+
+if sys.platform == "linux" or sys.platform == "linux2":
+    platf = "linux"
+elif sys.platform == "win32":
+    platf = "win"
+
+if platf == "win":
+    import winsound
+    from tkinter import messagebox
+
 
 args = sys.argv
 
@@ -59,7 +70,11 @@ if cfgDone == False:
         NICK = settings['client']['Nick']
         THEME = settings['settings']['Theme']
     except:
-        messagebox.showerror("/// Error ///", "Config read error")
+        if platf == "win":
+            messagebox.showerror("/// Error ///", "Config read error")
+        elif platf == "linux":
+            print("Config read error\nSet default config...")
+
         defText = """{
         "client": {
             "IPhost": "127.0.0.1",
@@ -103,7 +118,10 @@ class Client:
         try:
             self.sock.connect((self.host, self.port))
         except Exception as ex:
-            messagebox.showerror("Connection error", str(ex) + '\n\nCheck client-cfg > client')
+            if platf == "win":
+                messagebox.showerror("Connection error", str(ex) + '\n\nCheck client-cfg > client')
+            elif platf == "linux":
+                print("Connection error" + "\n" + str(ex) + "\n\nCheck client-cfg > client")
             raise("Connection error")
 
         msg = Tk()
@@ -113,7 +131,6 @@ class Client:
 
         self.guiDone = False
         self.running = True
-
         try:
             f = open('themes\\'+THEME)
             self.theme = json.load(f)
@@ -125,7 +142,10 @@ class Client:
             self.fdf = self.theme['text']['FFont']
             self.fds = self.theme['text']['SFont']
         except Exception as ex:
-            messagebox.showerror("/// Error ///", "Theme loading error\n" + str(ex))
+            if platf == "win":
+                messagebox.showerror("/// Error ///", "Theme loading error\n" + str(ex))
+            elif platf == "linux":
+                print("Theeme loading error\n" + str(ex))
             
 
         guiThread = th.Thread(target=self.guiLoop)
@@ -138,7 +158,10 @@ class Client:
             self.FDefault = Font(family=self.theme['text']['FFont'], size=int(self.theme['text']['SFont']))
             self.tformat = self.theme['main']['TitleFormat']
         except Exception as ex:
-            messagebox.showerror("/// Error ///", "Theme loading error\n" + str(ex))
+            if platf == "win":
+                messagebox.showerror("/// Error ///", "Theme loading error\n" + str(ex))
+            elif platf == "linux":
+                print("Theeme loading error\n" + str(ex))
             self.win.quit()
 
         
@@ -146,7 +169,11 @@ class Client:
         self.receiveThread.start()
 
     def defaultConfig(self):
-        messagebox.showerror("/// Error ///", "Theme loading error\n\nThe default theme will be loaded automatically\n\nIf the error persists, check the client configuration")
+        if platf == "win":
+            messagebox.showerror("/// Error ///", "Theme loading error\n\nThe default theme will be loaded automatically\n\nIf the error persists, check the client configuration")
+        elif platf == "linux":
+            print("Theme loading error\n\nThe default theme will be loaded automatically\n\nIf the error persists, check the client configuration")
+
         ex_type, ex, tb = sys.exc_info()
         traceback.print_tb(tb)
         
@@ -478,7 +505,8 @@ class Client:
                 self.counter += self.findNL(message)
             self.counter += 1
             if self.win.focus_get() == None and settings['settings']['Sounds'] and beep:
-                winsound.Beep(600, 100)
+                if platf == "win":
+                    winsound.Beep(600, 100)
 
     def encrypt(self, message):
         message = str(message).encode('utf-8')
