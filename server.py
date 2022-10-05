@@ -12,6 +12,12 @@ from cryptography.hazmat.primitives import serialization
 import sys, traceback, importlib, os, requests
 import sfuncs as sf
 
+platf = ""
+
+if sys.platform == "linux" or sys.platform == "linux2":
+    platf = "linux"
+elif sys.platform == "win32":
+    platf = "win"
 
 con = Console()
 
@@ -118,7 +124,10 @@ def decrypt(privKey, message) -> bytes:
 
 def dump(prefix='def'):
     d = dt.now()
-    dumpName = d.strftime('logs\\dump_' + prefix + '_%d-%m-%Y_%H.%M.%S.log')
+    if platf == "win":
+        dumpName = d.strftime('logs\\dump_' + prefix + '_%d-%m-%Y_%H.%M.%S.log')
+    else:
+        dumpName = d.strftime('logs/dump_' + prefix + '_%d-%m-%Y_%H.%M.%S.log')
     dat = globals()
     with open(dumpName, 'w') as f:
         f.write('--------MAIN--------\n\n')
@@ -331,14 +340,14 @@ def handle(client):
                     elif com[0] == 'help' and len(com) == 1:
                         sf.log('debug', f'send help to {sf.clients[client].displayNick}')
                         client.send(encrypt(sf.clients[client].pubKey, """<server -> me> help:
-\t/dm [nick] [message]
-\t/me [message]
-\t/do [message]
-\t/try [message]
-\t/help
-\t/color [formatColor]
-\t/prefix [prefix or 'remove']
-\t/list"""))
+\t/dm [nick] [message] - direct message
+\t/me [message] - rp command
+\t/do [message] - rp command
+\t/try [message] - rp command
+\t/help - display this message
+\t/color [formatColor] - change nick color
+\t/prefix [prefix or 'remove'] - change prefix (colors allow)
+\t/list - all users"""))
                         if sf.clients[client].admin:
                             client.send(encrypt(sf.clients[client].pubKey, """\t/kick [id]
 \t/color [id?] [formatColor]

@@ -44,6 +44,7 @@ if not os.path.isfile('client-cfg.json'):
         "Theme": "default.thm"
     }
 }"""
+
     f = open('client-cfg.json', 'w')
     f.write(defText)
     f.close()
@@ -132,7 +133,10 @@ class Client:
         self.guiDone = False
         self.running = True
         try:
-            f = open('themes\\'+THEME)
+            if platf == "win":
+                f = open('themes\\'+THEME)
+            else:
+                f = open("themes/"+THEME)
             self.theme = json.load(f)
             f.close()
         except:
@@ -212,7 +216,10 @@ class Client:
     }
 }"""
 
-        f = open('themes\\default.thm', 'w')
+        if platf == "win":
+            f = open('themes\\default.thm', 'w')
+        else:
+            f = open("themes/default.thm", "w")
         f.write(defText)
         f.close()
         self.theme = json.loads(defText)

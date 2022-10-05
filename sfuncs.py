@@ -6,8 +6,19 @@ from cryptography.hazmat.primitives.asymmetric import padding
 import os
 import json
 import typing
+import sys
+
+platf = ""
+
+if sys.platform == "linux" or sys.platform == "linux2":
+    platf = "linux"
+elif sys.platform == "win32":
+    platf = "win"
 
 con = Console()
+
+def getPlatform():
+    return platf
 
 def getID():
     count = 0
@@ -82,7 +93,10 @@ try:
     os.mkdir('logs')
 except:
     pass
-logname = d.strftime('logs\\server_%d-%m-%Y_%H.%M.%S.log')
+if platf == "win":
+    logname = d.strftime('logs\\server_%d-%m-%Y_%H.%M.%S.log')
+else:
+    logname = d.strftime('logs/server_%d-%m-%Y_%H.%M.%S.log')
 
 def log(fro, message) -> None:
     if fro != 'debug' or fro == 'debug' and settings['Debug']:
@@ -231,7 +245,10 @@ def getBan(nick, addr) -> bool:
 def loadData(client):
     back = clients[client]
     try:
-        f = open(f'userdata\\{clients[client].addr} {clients[client].nickname}.json', 'r')
+        if platf == "win":
+            f = open(f'userdata\\{clients[client].addr} {clients[client].nickname}.json', 'r')
+        else:
+            f = open(f'userdata/{clients[client].addr} {clients[client].nickname}.json', 'r')
         cli = json.load(f)
         clients[client].id = cli['id']
         clients[client].displayNick = cli['displayNick']
@@ -253,9 +270,12 @@ def saveData(client):
     cli['prefix'] = clients[client].prefix
     cli['color'] = clients[client].color
     cli['displayNick'] = clients[client].displayNick
-    with open(f'userdata\\{clients[client].addr} {clients[client].nickname}.json', 'w') as f:
-        json.dump(cli, f)
-
+    if platf == "win":
+        with open(f'userdata\\{clients[client].addr} {clients[client].nickname}.json', 'w') as f:
+            json.dump(cli, f)
+    else:
+        with open(f'userdata/{clients[client].addr} {clients[client].nickname}.json', 'w') as f:
+            json.dump(cli, f)
 
 def dump(f):
     dat = globals()
